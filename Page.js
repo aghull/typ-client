@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import classNames from 'classnames';
-import Piece from './Piece';
+import Element from './Element';
 
 export default class Page extends Component {
   constructor(props) {
@@ -52,21 +52,32 @@ export default class Page extends Component {
     return fragment.content.firstChild
   }
 
-  renderGameElement(element) {
-    //const Element = this.components[element.type] || Piece;
+  branch(node) {
+    const branch = [];
+    while (node.parentNode) {
+      branch.unshift(Array.from(node.parentNode.childNodes).indexOf(node) + 1);
+      node = node.parentNode;
+    }
+    return branch;
+  }
 
-    const attributes = Array.from(element.attributes).
+  renderGameElement(node) {
+    const attributes = Array.from(node.attributes).
                              filter(attr => attr.name !== 'class' && attr.name !== 'id').
                              reduce((attrs, attr) => Object.assign(attrs, { [attr.name]: isNaN(attr.value) ? attr.value : +attr.value }), {});
 
+    const type = node.nodeName.toLowerCase();
+    const ElementClass = this.components[type] || Element;
+
     return (
-      <Piece
-      id={element.id}
-      attributes={attributes}
-        className={classNames(element.nodeName.toLowerCase(), { mine: attributes.player === this.props.player })}
+      <ElementClass
+        id={node.id}
+        attributes={attributes}
+        key={this.branch(node)}
+        className={classNames(type, { mine: attributes.player === this.props.player })}
       >
-        {element.className === 'piece' ? element.id : Array.from(element.childNodes).map(node => this.renderGameElement(node))}
-      </Piece>
+        {node.className === 'piece' ? node.id : Array.from(node.childNodes).map(child => this.renderGameElement(child))}
+      </ElementClass>
     );
   }
 
