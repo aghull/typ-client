@@ -21,39 +21,47 @@ export default class Page extends Component {
   componentDidMount() {
     this.webSocket=new WebSocket('ws://' + document.location.host + '/sessions/' + this.props.session);
 
-    this.webSocket.onopen = () => console.log('websocket client connected');
-    this.webSocket.onclose = () => console.log('websocket client disconnected');
+    this.webSocket.onopen = () => {
+      this.refreshInterval = setInterval(() => {
+        console.log('refresh');
+        this.send('refresh');
+      }, 5000);
+    };
+    this.webSocket.onclose = () => {
+      console.log('onclose')
+      clearInterval(this.refreshInterval);
+    }
     this.webSocket.onmessage = e => {
       const res = JSON.parse(e.data);
       console.log("Received", res);
       switch(res.type) {
-        case "update":
-          this.setState({data: res.data});
+        case "state":
+          if (res.payload) this.setState({data: res.payload});
           break;
         case "players":
-          this.setState({players: res.players});
+          this.setState({players: res.payload});
           break;
         case "updateLocks":
-          this.setState({locks: res.data});
+          this.setState({locks: res.payload});
           break;
         case "updateElement":
-          this.setState(state => Object.assign({}, state, {positions: Object.assign({}, state.positions, {[res.data.key]: {x: res.data.x, y: res.data.y}})}))
+          this.setState(state => Object.assign({}, state, {positions: Object.assign({}, state.positions, {[res.payload.key]: {x: res.payload.x, y: res.payload.y}})}))
           break;
-      };
+      }
     }
-
-    setInterval(() => this.send('refresh'), 5000);
   }
 
-  send(action, args) {
-    this.webSocket.send(JSON.stringify(Object.assign({type: action}, args)));
+  send(action, payload) {
+    payload = payload || {}
+    this.webSocket.send(JSON.stringify({type: action, payload}));
   }
 
   gameAction() {
     this.send(
       'action', {
-        payload: this.state.input.split(' ')
-      }
+        sequence: this.state.data.sequence,
+        action: this.state.input.split(' '),
+      },
     );
     this.setState({input: ''});
   }
@@ -94,7 +102,7 @@ export default class Page extends Component {
   }
 
   startDrag(key) {
-    this.send('requestLock', {payload: {key}});
+    this.send('requestLock', {key});
     // set piece to uncontrolled
     this.setState(state => Object.assign({}, state, {positions: Object.assign({}, state.positions, {[key]: undefined})}))
   }
@@ -104,8 +112,11 @@ export default class Page extends Component {
   }
 
   stopDrag(key, x, y) {
-    this.send('releaseLock', {payload: {key}});
-    this.send('action', {payload: ['_moveElement', key, x, y]});
+    this.send('releaseLock', {key});
+    this.send('action', {
+      sequence: this.state.data.sequence,
+      action: ['moveElement', key, x, y]
+    })
     // optimistically update the location to avoid flicker
     this.setPieceAt(key, {x, y})
   }
@@ -166,12 +177,7 @@ export default class Page extends Component {
           </ul>
         </div>
         <div>Game state: {JSON.stringify(this.state.data.variables)}</div>
-      
-        {this.state.data.phase === 'setup' && (
-          <div>
-            <button onClick={() => this.send('startGame')}>Start</button>
-          </div>
-        )}
+
         {this.state.data.phase === 'playing' && (
           <div>
             <div>
