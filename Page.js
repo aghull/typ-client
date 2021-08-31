@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import classNames from 'classnames';
 import Element from './Element';
 import Draggable from 'react-draggable';
-
+import ReconnectingWebSocket from 'reconnecting-websocket';
 let throttled = false;
 
 export default class Page extends Component {
@@ -19,7 +19,7 @@ export default class Page extends Component {
   }
 
   componentDidMount() {
-    this.webSocket=new WebSocket('ws://' + document.location.host + '/sessions/' + this.props.session);
+    this.webSocket=new ReconnectingWebSocket('ws://' + document.location.host + '/sessions/' + this.props.session);
 
     this.webSocket.onopen = () => {
       this.refreshInterval = setInterval(() => {
@@ -108,7 +108,7 @@ export default class Page extends Component {
   }
 
   dragging(key, x, y) {
-    this.throttle(() => this.send('drag', {payload: {key, x, y}}));
+    this.throttle(() => this.send('drag', {key, x, y}));
   }
 
   stopDrag(key, x, y) {
